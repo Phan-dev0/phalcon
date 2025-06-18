@@ -1,2 +1,7 @@
 /cache/
 /config/development/
+.dockerignore
+composer.json
+composer.lock
+vendor/
+
