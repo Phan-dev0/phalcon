@@ -1,0 +1,33 @@
+version: "3"
+services:
+  web:
+    build: .
+    ports:
+      - "80:80"
+    volumes:
+      - ./app:/app
+      - ./config:/config
+      - ./public:/public
+      - ./core:/core
+      - ./default.conf:/etc/nginx/http.d/default.conf
+    depends_on:
+      - db
+  db:
+    image: mysql:8.0
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    restart: unless-stopped   
+    environment:
+        MYSQL_ROOT_PASSWORD: rootpassword123
+        MYSQL_DATABASE: mydatabase
+        MYSQL_USER: myuser
+        MYSQL_PASSWORD: mypassword
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+volumes:
+  db_data:
