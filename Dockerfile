@@ -25,9 +25,9 @@ RUN curl -sSL "https://codeload.github.com/phalcon/cphalcon/tar.gz/v${PHALCON_VE
     && cd ../../ \
     && rm -r cphalcon-${PHALCON_VERSION}
 
-# Install Phalcon DevTools globally
-RUN composer global require phalcon/devtools \
-    && ln -s /root/.composer/vendor/bin/phalcon /usr/local/bin/phalcon
+# # Install Phalcon DevTools globally
+# RUN composer global require phalcon/devtools \
+#     && ln -s /root/.composer/vendor/bin/phalcon /usr/local/bin/phalcon
 
 # Configure Nginx
 COPY default.conf /etc/nginx/conf.d/default.conf
@@ -35,8 +35,8 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 # Copy application files (with .dockerignore in place)
 COPY . .
 
-# Fix permissions
-RUN chown -R www-data:www-data /var/www/html
+# # Fix permissions
+# RUN chown -R www-data:www-data /var/www/html
 
 # Start services
 CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]
