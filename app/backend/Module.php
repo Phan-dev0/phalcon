@@ -35,9 +35,18 @@ class Module
             return $dispatcher;
         });
 
-        $di->set('view', function () {
+        $di->set('view', function () use ($di) {
             $view = new View();
             $view->setViewsDir(__DIR__ . '/views/');
+
+            $view->registerEngines([
+                '.volt' => function ($view) use ($di) {
+                    $volt = new Volt($view, $di); // pass $di instead of $this
+
+                    return $volt;
+                }
+            ]);
+
             return $view;
         });
 
