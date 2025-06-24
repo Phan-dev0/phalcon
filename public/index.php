@@ -1,86 +1,138 @@
 <?php
 
-use Phalcon\Mvc\Application;
 use Phalcon\Di\FactoryDefault;
-use Phalcon\Autoload\Loader;
+use Phalcon\Mvc\Application;
 use Phalcon\Mvc\Router;
+use Phalcon\Db\Adapter\Pdo\Mysql;
+use Phalcon\Autoload\Loader;
+use Phalcon\Session\Manager;
+use Phalcon\Session\Adapter\Stream;
+use Phalcon\Mvc\View;
+use Phalcon\Mvc\View\Engine\Volt;
 
 
-$di = new FactoryDefault();
+class App
+{
+    protected FactoryDefault $di;
+    protected Application $application;
 
-$loader = new Loader();
-$loader->setNamespaces([
-    'App\Frontend'  => __DIR__ . '/../app/frontend/',
-    'App\Backend'   => __DIR__ . '/../app/backend/',
-]);
-$loader->register();
+    public function __construct()
+    {
+        $this->di = new FactoryDefault();
+        $this->registerRouter();
+        $this->registerModules();
+        $this->registerServices();
+        $this->application = new Application($this->di);
+    }
+
+    protected function registerRouter(): void
+    {
+        $this->di->setShared('router', function () {
+            $router = new Router(false);
+
+            $router->add('/', [
+                'module'     => 'frontend',
+                'controller' => 'index',
+                'action'     => 'index',
+            ]);
+
+            $router->add('/admin', [
+                'module'     => 'backend',
+                'controller' => 'index',
+                'action'     => 'index',
+            ])->setName('posts');
+
+            $router->add('/admin/post/create', [
+                'module'     => 'backend',
+                'controller' => 'index',
+                'action'     => 'create',
+            ])->setName('post-create');
+
+            $router->add('/admin/post/update/{id}', [
+                'module'     => 'backend',
+                'controller' => 'index',
+                'action'     => 'update',
+            ])->setName('post-update');
+
+            $router->add('/admin/post/delete/{id}', [
+                'module'     => 'backend',
+                'controller' => 'index',
+                'action'     => 'delete',
+            ])->setName('post-delete');
 
 
-// if (!class_exists('App\Backend\Controllers\IndexController')) {
-//     die('Backend IndexController NOT FOUND');
-// } else {
-//     die('Backend IndexController FOUND');
-// }
+            // 404 handler
+            $router->notFound([
+                'module'     => 'frontend',
+                'controller' => 'error',
+                'action'     => 'notFound',
+            ]);
 
-$di->setShared('router', function () {
-    $router = new Router(false);
+            return $router;
+        });
+    }
 
-    // Frontend (default)
-    $router->add('/:controller/:action/', [
-        'module'     => 'frontend',
-        'controller' => 1,
-        'action'     => 2,
-    ]);
+    protected function registerModules(): void
+    {
+        $di = $this->di;
 
-    $router->add('/', [
-        'module'     => 'frontend',
-        'controller' => 'index',
-        'action'     => 'index',
-    ]);
+        $this->di->setShared('application', function () use ($di) {
+            $app = new Application($di);
 
-    // Backend (access via /admin)
-    $router->add('/admin/:controller/:action/', [
-        'module'     => 'backend',
-        'controller' => 1,
-        'action'     => 2,
-    ]);
+            $app->registerModules([
+                'frontend' => [
+                    'className' => 'App\Frontend\Module',
+                    'path'      => '../app/frontend/Module.php',
+                ],
+                'backend' => [
+                    'className' => 'App\Backend\Module',
+                    'path'      => '../app/backend/Module.php',
+                ]
+            ]);
 
-    $router->add('/admin', [
-        'module'     => 'backend',
-        'controller' => 'index',
-        'action'     => 'index',
-    ]);
-    // 404 handler
-    $router->notFound([
-        'module'     => 'frontend',
-        'controller' => 'error',
-        'action'     => 'notFound',
-    ]);
+            return $app;
+        });
+    }
 
-   
-    return $router;
-});
+    public function registerServices(): void
+    {
+        $di = $this->di;
 
-$app = new Application($di);
+        $di->set('session', function () {
+            $session = new Manager();
+            $files = new Stream([
+                'savePath' => '/tmp',
+            ]);
+            $session->setAdapter($files);
+            $session->start();
+            return $session;
+        });
 
-$app->registerModules([
-    'frontend' => [
-        'className' => 'App\Frontend\Module',
-        'path'      => '../app/frontend/Module.php',
-    ],
-    'backend' => [
-        'className' => 'App\Backend\Module',
-        'path'      => '../app/backend/Module.php',
-    ]
-]);
+        $di->set('db', function () {
+            return new Mysql(
+                [
+                    "host"     => "db",
+                    "username" => "myuser",
+                    "password" => "mypassword",
+                    "dbname"   => "mydatabase",
+                ]
+            );
+        });
+    }
 
-try {
-    
-    $response = $app->handle(
-        $_SERVER["REQUEST_URI"]
-    );
 
-    $response->send();
-} catch (\Exception $e) {
-    echo 'Exception: ', $e->getMessage();
+    public function run(): void
+    {
+        try {
+            $app = $this->di->get('application');
+            $response = $app->handle($_SERVER["REQUEST_URI"]);
+            $response->send();
+        } catch (\Throwable $e) {
+            echo 'Exception: ', $e->getMessage();
+        }
+    }
 }
+
+// Bootstrap the app
+$bootstrap = new App();
+$bootstrap->run();

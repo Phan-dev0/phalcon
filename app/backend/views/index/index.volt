@@ -1,44 +1,45 @@
-<!DOCTYPE html>
-<html>
+{% extends 'layout.volt' %}
 
-<head>
-    <title></title>
-</head>
+{% block title %}Post List
+{% endblock %}
 
-<body>
-    <h1>Backend Dashboard</h1>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>User ID</th>
-                <th>Title</th>
-                <th>Content</th>
-                <th>Created At</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for post in posts %}
-                <tr>
-                    <td>{{ post.getId() }}</td>
-                    <td>{{ post.getUserId() }}</td>
-                    <td>{{ post.getTitle() }}</td>
-                    <td>{{ post.getContent() }}</td>
-                    <td>{{ post.getCreatedAt() }}</td>
-                    <td>
-                        <a href="/admin/index/update/{{ post.getId() }}">
-                            <button>Update</button>
-                        </a>
+{% block content %}
+	<h1>Backend Dashboard</h1>
+	<a href="{{url(['for': 'post-create'])}}" class="btn btn-primary">Create New Post</a>
 
-                        <a href="/admin/index/delete/{{ post.getId() }}" onclick="return confirm('Are you sure you want to delete this post?');">
-                            <button>Delete</button>
-                        </a>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</body>
+	<table class="post-table">
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>User's Name</th>
+				<th>Title</th>
+				<th>Created At</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for post in posts %}
+				<tr>
+					<td>{{ post.getId() }}</td>
+					<td>{{ post.getUser().getUsername() }}</td>
+					<td>{{ post.getTitle() }}</td>
+					<td>{{ post.getCreatedAt() }}</td>
+					<td>
+						<a href="{{ url(['for': 'post-update', 'id': post.getId()]) }}" class="btn btn-update">Update</a>
+						<a href="{{ url(['for': 'post-delete', 'id': post.getId()]) }}" class="btn btn-delete" onclick="return confirm('Are you sure you want to delete this post?');">
+							Delete
+						</a>
+					</td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
 
-</html>
+	{% for type, messages in flashSession.getMessages() %}
+		{% for message in messages %}
+			<div class="flash-message {{ type }}">
+				{{ message }}
+			</div>
+		{% endfor %}
+	{% endfor %}
+{% endblock %}

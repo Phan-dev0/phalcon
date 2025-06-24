@@ -12,65 +12,37 @@ class PostRepository
         return Post::find();
     }
 
-    // Get post by ID
     public function getPostById(int $id)
     {
         $post = Post::findFirstById($id);
         if (!$post) {
-            return null; // Not found
+            return false;
         }
         return $post;
     }
 
-    // Create new post
-    public function create(array $data)
+    public function create(Post $post)
     {
-        $post = new Post();
-        $post->setUserId($data['user_id']);
-        $post->setTitle($data['title']);
-        $post->setContent($data['content']);
-
         if (!$post->save()) {
-            return $post->getMessages();
+            return false;
         }
-
-        return true; 
+        return true;
     }
 
-    // Update existing post
-    public function update(int $id, array $data)
+    public function update(Post $post)
     {
-        $post = Post::findFirstById($id);
-        if (!$post) {
-            return ['error' => 'Post not found'];
-        }
-
-        if (isset($data['title'])) {
-            $post->setTitle($data['title']);
-        }
-        if (isset($data['content'])) {
-            $post->setContent($data['content']);
-        }
-
         if (!$post->save()) {
-            return $post->getMessages();
+            return false;
         }
-
-        return true; 
+        return true;
     }
 
-    // Delete post
-    public function delete(int $id)
+    public function delete(Post $post)
     {
-        $post = Post::findFirstById($id);
-        if (!$post) {
-            return ['error' => 'Post not found'];
-        }
-
         if (!$post->delete()) {
-            return $post->getMessages();
+            return false;
         }
-
-        return true; 
+        return true;
     }
+
 }

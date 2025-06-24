@@ -6,7 +6,7 @@ use Phalcon\Mvc\Model;
 
 class User extends Model
 {
-    protected int $id;
+    protected string $id;
     protected string $username;
     protected string $email;
     protected string $password;
@@ -28,7 +28,7 @@ class User extends Model
     }
 
     // ID
-    public function getId(): int
+    public function getId(): string
     {
         return $this->id;
     }

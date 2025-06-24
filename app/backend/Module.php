@@ -8,20 +8,19 @@ use Phalcon\Mvc\View;
 use Phalcon\Mvc\View\Engine\Volt;
 use Phalcon\Db\Adapter\Pdo\Mysql;
 use Phalcon\Autoload\Loader;
+use Phalcon\Session\Manager;
+use Phalcon\Session\Adapter\Stream;
 
 class Module
 {
     public function registerAutoloaders(DiInterface $di = null): void
     {
-        error_log("Backend");
         $loader = new Loader();
 
         $loader->setNamespaces([
             'App\Backend\Controllers' => __DIR__ . '/controllers/',
             'App\Backend\Models'      => __DIR__ . '/models/',
-        ])->setDirectories([
-            __DIR__ . '/controllers/',
-            __DIR__ . '/models/',
+            'App\Backend\Repositories' => __DIR__ . '/repositories/'
         ])->register();
 
         $loader->register();
@@ -35,14 +34,16 @@ class Module
             return $dispatcher;
         });
 
-        $di->set('view', function () use ($di) {
+        $di->set('view', function () use ($di) {    
             $view = new View();
             $view->setViewsDir(__DIR__ . '/views/');
 
             $view->registerEngines([
                 '.volt' => function ($view) use ($di) {
-                    $volt = new Volt($view, $di); // pass $di instead of $this
-
+                    $volt = new Volt($view, $di);
+                    $volt->setOptions([
+                        'always' => true, 
+                    ]);
                     return $volt;
                 }
             ]);
@@ -50,16 +51,6 @@ class Module
             return $view;
         });
 
-
-        $di->set('db', function () {
-            return new Mysql(
-                [
-                    "host"     => "db",
-                    "username" => "myuser",
-                    "password" => "mypassword",
-                    "dbname"   => "mydatabase",
-                ]
-            );
-        });
+        
     }
 }
