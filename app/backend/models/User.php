@@ -4,12 +4,36 @@ namespace App\Backend\Models;
 
 use Phalcon\Mvc\Model;
 
+/**
+ * @Source("users")
+ */
 class User extends Model
 {
+    /**
+     * @Primary
+     * @Identity
+     * @Column(type="integer", nullable=false)
+     */
     protected string $id;
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
     protected string $username;
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
     protected string $email;
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
     protected string $password;
+
+    /**
+     * @Column(type="string", nullable=false)
+     */
     protected string $created_at;
 
     public function initialize()

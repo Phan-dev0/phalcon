@@ -9,7 +9,14 @@ use Phalcon\Session\Manager;
 use Phalcon\Session\Adapter\Stream;
 use Phalcon\Mvc\View;
 use Phalcon\Mvc\View\Engine\Volt;
+use Phalcon\Mvc\Router\Annotations;
+use Phalcon\Mvc\Model\Transaction\Manager as TransactionManager;
+use Phalcon\Security;
+use Phalcon\Events\Manager as EventsManager;
+use Phalcon\Mvc\Model\Manager as ModelManager;
 
+use App\Services\DateFormatter;
+use App\Backend\Models\Post;
 
 class App
 {
@@ -19,47 +26,45 @@ class App
     public function __construct()
     {
         $this->di = new FactoryDefault();
-        $this->registerRouter();
-        $this->registerModules();
+        $this->registerAutoloader();
         $this->registerServices();
+        $this->registerRouter();
         $this->application = new Application($this->di);
+        $this->registerModules();
+    }
+
+    protected function registerAutoloader()
+    {
+        $loader = new Loader();
+
+        $loader->setNamespaces([
+            'App\Frontend' => __DIR__ . '/../app/frontend/',
+            'App\Backend'  => __DIR__ . '/../app/backend/',
+            'App\Services'  => __DIR__ . '/../app/services/',
+        ]);
+
+        $loader->register();
     }
 
     protected function registerRouter(): void
     {
         $this->di->setShared('router', function () {
-            $router = new Router(false);
+            $router = new Annotations(false);
 
-            $router->add('/', [
-                'module'     => 'frontend',
-                'controller' => 'index',
-                'action'     => 'index',
-            ]);
+            $router->setDefaultModule('frontend');
 
-            $router->add('/admin', [
-                'module'     => 'backend',
-                'controller' => 'index',
-                'action'     => 'index',
-            ])->setName('posts');
+            $router->addModuleResource(
+                'frontend',
+                'App\Frontend\Controllers\Index',
+                '/'
+            );
 
-            $router->add('/admin/post/create', [
-                'module'     => 'backend',
-                'controller' => 'index',
-                'action'     => 'create',
-            ])->setName('post-create');
-
-            $router->add('/admin/post/update/{id}', [
-                'module'     => 'backend',
-                'controller' => 'index',
-                'action'     => 'update',
-            ])->setName('post-update');
-
-            $router->add('/admin/post/delete/{id}', [
-                'module'     => 'backend',
-                'controller' => 'index',
-                'action'     => 'delete',
-            ])->setName('post-delete');
-
+            // Backend annotation
+            $router->addModuleResource(
+                'backend',
+                'App\Backend\Controllers\AdminPost',
+                '/admin'
+            );
 
             // 404 handler
             $router->notFound([
@@ -74,29 +79,92 @@ class App
 
     protected function registerModules(): void
     {
-        $di = $this->di;
-
-        $this->di->setShared('application', function () use ($di) {
-            $app = new Application($di);
-
-            $app->registerModules([
-                'frontend' => [
-                    'className' => 'App\Frontend\Module',
-                    'path'      => '../app/frontend/Module.php',
-                ],
-                'backend' => [
-                    'className' => 'App\Backend\Module',
-                    'path'      => '../app/backend/Module.php',
-                ]
-            ]);
-
-            return $app;
-        });
+        $this->application->registerModules([
+            'frontend' => [
+                'className' => 'App\Frontend\Module',
+                'path'      => '../app/frontend/Module.php',
+            ],
+            'backend' => [
+                'className' => 'App\Backend\Module',
+                'path'      => '../app/backend/Module.php',
+            ]
+        ]);
     }
 
     public function registerServices(): void
     {
         $di = $this->di;
+
+        // custom service
+        $di->setShared("dateFormatter", function () {
+            return new DateFormatter;
+        });
+        // =================
+
+        $di->setShared('eventsManager', function () {
+            $eventsManager = new EventsManager();
+
+            // Attach model events
+            $eventsManager->attach('model', function ($event, $model) {
+                if ($model instanceof Post) {
+                    if ($event->getType() === 'afterCreate') {
+                        error_log("[Post Created] ID: {$model->getId()}, Title: {$model->getTitle()}");
+                    }
+
+                    if ($event->getType() === 'beforeSave') {
+                        error_log("[Saving Post] Title: " . $model->getTitle());
+                    }
+
+                    if ($event->getType() === 'afterDelete') {
+                        error_log("[Post Deleted] ID: {$model->getId()}, Title: {$model->getTitle()}");
+                    }
+                }
+            });
+
+            return $eventsManager;
+        });
+
+        // This makes all your models respond to the global model events you attached.
+        $di->setShared('modelsManager', function () use ($di) {
+            $modelsManager = new ModelManager();
+            $modelsManager->setEventsManager($di->get('eventsManager'));
+            return $modelsManager;
+        });
+
+        $di->setShared(
+            'transactions',
+            function () {
+                return new TransactionManager();
+            }
+        );
+
+        $di->setShared('timezone', function () {
+            return 'Asia/Ho_Chi_Minh';
+        });
+
+        $di->setShared('view', function () use ($di) {
+            $view = new View();
+            $view->setViewsDir(__DIR__ . '/../app/views/');
+
+            $view->registerEngines([
+                '.volt' => function ($view) use ($di) {
+                    $volt = new Volt($view, $di);
+                    $volt->setOptions([
+                        'always' => true,
+                    ]);
+
+                    $compiler = $volt->getCompiler();
+
+                    $compiler->addFunction('formatDate', function ($resolvedArgs) {
+                        return "\$this->di->get('dateFormatter')->format($resolvedArgs)";
+                    });
+
+                    return $volt;
+                }
+            ]);
+
+            return $view;
+        });
 
         $di->set('session', function () {
             $session = new Manager();
@@ -124,8 +192,7 @@ class App
     public function run(): void
     {
         try {
-            $app = $this->di->get('application');
-            $response = $app->handle($_SERVER["REQUEST_URI"]);
+            $response = $this->application->handle($_SERVER["REQUEST_URI"]);
             $response->send();
         } catch (\Throwable $e) {
             echo 'Exception: ', $e->getMessage();
